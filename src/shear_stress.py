@@ -14,7 +14,7 @@ from scipy.stats import linregress
 ### Define variables
 # bounds for analysis
 min_disp        = 0 # mm
-max_disp        = 20 # mm
+max_disp        = 100 # mm
 
 # sample metadata
 sample_name     = 'x spheres'
@@ -25,7 +25,7 @@ sample_area     = sample_length * sample_width # mm^2, multiply by 10^-6 to get 
 # file paths
 kn_csv_path     = 'path/to/kn.csv'
 mm_csv_path     = 'path/to/mm.csv'
-save_dir        = 'dir/to/save/' # directory, filename is set by the script
+save_dir        = 'save/to/dir/' # directory, filename is set by the script
 
 # peak finding parameters
 prominence      = 0.003 # prominence of peaks (units of friction, in this case)
@@ -94,10 +94,6 @@ troughs, _ = find_peaks(-dataframe['friction'],  # find troughs by inverting the
                         prominence=prominence,   # saved to array called "troughs"
                         distance=distance)
 
-# find troughs by finding the minimum in the friction data between each peak, except the last peak
-# this is a more robust method than finding the troughs by inverting the friction data
-# troughs = [dataframe['friction'].iloc[peaks[i]:peaks[i+1]].idxmin() for i in range(len(peaks) - 1)]
-
 ### Clean up the peaks and troughs
 # if the first peak has a smaller index than the first trough, remove it
 # we want the dataset to start with a trough and end with a peak
@@ -120,6 +116,7 @@ friction_drops  = []
 
 # FOR DEBUGGING
 intercepts = []
+i = 0
 
 ## Calculate the shear modulus
 # iterature through each peak and trough pair (trough and the peak after it)
@@ -130,22 +127,24 @@ for peak, trough in zip(peaks, troughs):
 
         ## Calculate the shear stress and strain at each point in the cut data
         # shear stress is the x_force divided by the sample area
-        shear_stress = (-cut_data['x_force'] * 1000) / sample_area * 10**(-6) # x_force in N divided by area in m^2, Pa
+        shear_stress = (-cut_data['x_force'] * 1000) / (sample_area * 10**(-6)) # x_force in N divided by area in m^2, Pa
 
         # calculate the slip deficit and shear strain
         # shear strain is based on the transducer displacement, assuming the sample doesn't move during loading
-        slip_deficit = cut_data['x_disp'] - cut_data['x_disp'].iloc[0] # difference between the first x_disp and each x_disp
-        shear_strain = slip_deficit / sample_length # deficit in mm divided by sample length in mm
+        sample_deformation = cut_data['x_disp'] - cut_data['x_disp'].iloc[0] # difference between the first x_disp and each x_disp
+        shear_strain = sample_deformation / sample_length # deficit in mm divided by sample length in mm
 
         ## Curve fitting and storing the results
         # fit a line through the loading path, now expressed in shear stress and strain
         slope, intercept, r_value, p_value, std_err = linregress(shear_strain, shear_stress)
-    
+        
         # add the slope of this trough/peak pair to the list
         slope_list.append(slope)
 
         #add the intercept to the list
         intercepts.append(intercept)
+
+        i += 1
 
 ## Calculate the slip distance and friction drop
 # iterating through each peak
